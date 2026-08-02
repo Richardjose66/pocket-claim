@@ -9,10 +9,13 @@ import {
   StatusBar,
   Modal,
   TextInput,
-  Alert
+  Alert,
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Shield, Plus, Clock, FileText, TrendingUp, AlertCircle, X, Sparkles, CheckCircle } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Shield, Plus, Clock, FileText, TrendingUp, AlertCircle, X, Sparkles, CheckCircle, Camera, Upload } from 'lucide-react-native';
 
 const STORAGE_KEY = '@pocketclaim_warranties_v1';
 
@@ -27,11 +30,13 @@ export default function App() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [paywallModalVisible, setPaywallModalVisible] = useState(false);
 
-  // Form states
+  // Form & Image states
   const [newItemName, setNewItemName] = useState('');
   const [newItemStore, setNewItemStore] = useState('');
   const [newItemValue, setNewItemValue] = useState('');
   const [newItemDays, setNewItemDays] = useState('');
+  const [receiptImage, setReceiptImage] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Load saved warranties on startup
   useEffect(() => {
@@ -54,6 +59,36 @@ export default function App() {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
       console.log('Error saving claim', e);
+    }
+  };
+
+  // Image Picker & Mock OCR Scanner
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Permission to access gallery is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      setReceiptImage(result.assets[0].uri);
+      setIsScanning(true);
+
+      // Simulate AI Receipt Scan extraction after 1.5 seconds
+      setTimeout(() => {
+        setIsScanning(false);
+        setNewItemName('PlayStation 5 Pro');
+        setNewItemStore('GameStop');
+        setNewItemValue('699');
+        setNewItemDays('365');
+      }, 1500);
     }
   };
 
@@ -86,6 +121,7 @@ export default function App() {
     setNewItemStore('');
     setNewItemValue('');
     setNewItemDays('');
+    setReceiptImage(null);
     setAddModalVisible(false);
   };
 
@@ -163,16 +199,36 @@ export default function App() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* --- ADD CLAIM MODAL --- */}
+      {/* --- ADD CLAIM MODAL WITH RECEIPT SCANNER --- */}
       <Modal visible={addModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Warranty / Receipt</Text>
-              <TouchableOpacity onPress={() => setAddModalVisible(false)}>
+              <Text style={styles.modalTitle}>Add Warranty / Receipt</Text>
+              <TouchableOpacity onPress={() => { setAddModalVisible(false); setReceiptImage(null); }}>
                 <X color="#94a3b8" size={22} />
               </TouchableOpacity>
             </View>
+
+            {/* Receipt Upload / Scan Box */}
+            <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
+              {receiptImage ? (
+                <View style={styles.receiptPreviewContainer}>
+                  <Image source={{ uri: receiptImage }} style={styles.receiptImagePreview} />
+                  {isScanning && (
+                    <View style={styles.scanningOverlay}>
+                      <ActivityIndicator size="small" color="#e11d48" />
+                      <Text style={styles.scanningText}>AI Scanning Receipt...</Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.uploadPlaceholder}>
+                  <Camera color="#fb7185" size={24} />
+                  <Text style={styles.uploadText}>Upload Receipt Photo for AI Auto-Fill</Text>
+                </View>
+              )}
+            </TouchableOpacity>
 
             <TextInput 
               style={styles.input} 
@@ -323,8 +379,18 @@ const styles = StyleSheet.create({
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.85)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#140a12', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderWidth: 1, borderColor: '#3b1222' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
+  
+  // Upload Receipt UI
+  uploadBox: { backgroundColor: '#0a080d', borderRadius: 12, borderWidth: 1, borderColor: '#3b1222', borderStyle: 'dashed', padding: 16, marginBottom: 16, alignItems: 'center', justifyContent: 'center', minHeight: 90 },
+  uploadPlaceholder: { alignItems: 'center', gap: 6 },
+  uploadText: { color: '#fb7185', fontSize: 13, fontWeight: '500' },
+  receiptPreviewContainer: { width: '100%', height: 90, borderRadius: 8, overflow: 'hidden', position: 'relative' },
+  receiptImagePreview: { width: '100%', height: '100%' },
+  scanningOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10, 8, 13, 0.85)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  scanningText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold' },
+
   input: { backgroundColor: '#0a080d', borderRadius: 10, padding: 14, color: '#ffffff', marginBottom: 12, borderWidth: 1, borderColor: '#2e1220' },
   saveButton: { backgroundColor: '#e11d48', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
