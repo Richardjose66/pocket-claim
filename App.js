@@ -15,9 +15,10 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { Shield, Plus, Clock, FileText, TrendingUp, AlertCircle, X, Sparkles, CheckCircle, Camera, Upload } from 'lucide-react-native';
+import { Shield, Plus, Clock, FileText, TrendingUp, AlertCircle, X, Sparkles, CheckCircle, Camera, Crown } from 'lucide-react-native';
 
 const STORAGE_KEY = '@pocketclaim_warranties_v1';
+const PRO_KEY = '@pocketclaim_pro_status_v1';
 
 export default function App() {
   const [warranties, setWarranties] = useState([
@@ -25,6 +26,10 @@ export default function App() {
     { id: '2', item: 'Sony WH-1000XM5', store: 'Amazon', expires: '180 Days Left', value: '$399', status: 'good' },
     { id: '3', item: 'Dyson V15 Vacuum', store: 'Best Buy', expires: '3 Days Left', value: '$749', status: 'critical' },
   ]);
+
+  // Pro State & Subscription Tiers
+  const [isPro, setIsPro] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('annual');
 
   // Modal states
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -38,19 +43,20 @@ export default function App() {
   const [receiptImage, setReceiptImage] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Load saved warranties on startup
+  // Load saved warranties & Pro status on startup
   useEffect(() => {
     loadSavedData();
   }, []);
 
   const loadSavedData = async () => {
     try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      if (saved !== null) {
-        setWarranties(JSON.parse(saved));
-      }
+      const savedWarranties = await AsyncStorage.getItem(STORAGE_KEY);
+      if (savedWarranties !== null) setWarranties(JSON.parse(savedWarranties));
+      
+      const savedPro = await AsyncStorage.getItem(PRO_KEY);
+      if (savedPro !== null) setIsPro(JSON.parse(savedPro));
     } catch (e) {
-      console.log('Error loading saved claims', e);
+      console.log('Error loading saved data', e);
     }
   };
 
@@ -60,6 +66,27 @@ export default function App() {
     } catch (e) {
       console.log('Error saving claim', e);
     }
+  };
+
+  // Handle RevenueCat Purchase Simulation
+  const handleSubscribe = async () => {
+    setIsPro(true);
+    try {
+      await AsyncStorage.setItem(PRO_KEY, JSON.stringify(true));
+    } catch (e) {
+      console.log('Error saving Pro status', e);
+    }
+
+    setPaywallModalVisible(false);
+    
+    // Custom Success Notification
+    setTimeout(() => {
+      Alert.alert(
+        '🎉 Welcome to PocketClaim Pro!',
+        'Your 7-Day Free Trial is now active. Automatic Gmail Receipt Sync has been enabled.',
+        [{ text: 'Great!', style: 'default' }]
+      );
+    }, 300);
   };
 
   // Image Picker & Mock OCR Scanner
@@ -81,7 +108,6 @@ export default function App() {
       setReceiptImage(result.assets[0].uri);
       setIsScanning(true);
 
-      // Simulate AI Receipt Scan extraction after 1.5 seconds
       setTimeout(() => {
         setIsScanning(false);
         setNewItemName('PlayStation 5 Pro');
@@ -140,6 +166,12 @@ export default function App() {
         <View style={styles.brandRow}>
           <Shield color="#e11d48" size={28} />
           <Text style={styles.brandTitle}>PocketClaim</Text>
+          {isPro && (
+            <View style={styles.proHeaderBadge}>
+              <Crown color="#fb7185" size={12} />
+              <Text style={styles.proHeaderBadgeText}>PRO</Text>
+            </View>
+          )}
         </View>
         <TouchableOpacity style={styles.addButton} onPress={() => setAddModalVisible(true)}>
           <Plus color="#ffffff" size={20} />
@@ -189,14 +221,24 @@ export default function App() {
           </View>
         ))}
 
-        {/* RevenueCat Pro Banner Trigger */}
-        <TouchableOpacity style={styles.proBanner} onPress={() => setPaywallModalVisible(true)}>
-          <AlertCircle color="#fb7185" size={20} />
-          <View style={styles.proTextGroup}>
-            <Text style={styles.proTitle}>Unlock Auto-Receipt Sync</Text>
-            <Text style={styles.proSub}>Automatically scan Gmail for purchase warranties.</Text>
+        {/* Dynamic RevenueCat Banner */}
+        {isPro ? (
+          <View style={styles.proActiveBanner}>
+            <CheckCircle color="#10b981" size={20} />
+            <View style={styles.proTextGroup}>
+              <Text style={styles.proActiveTitle}>Gmail Auto-Sync Active</Text>
+              <Text style={styles.proSub}>Scanning inbox automatically for digital receipts.</Text>
+            </View>
           </View>
-        </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.proBanner} onPress={() => setPaywallModalVisible(true)}>
+            <AlertCircle color="#fb7185" size={20} />
+            <View style={styles.proTextGroup}>
+              <Text style={styles.proTitle}>Unlock Auto-Receipt Sync</Text>
+              <Text style={styles.proSub}>Automatically scan Gmail for purchase warranties.</Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* --- ADD CLAIM MODAL WITH RECEIPT SCANNER --- */}
@@ -210,7 +252,6 @@ export default function App() {
               </TouchableOpacity>
             </View>
 
-            {/* Receipt Upload / Scan Box */}
             <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
               {receiptImage ? (
                 <View style={styles.receiptPreviewContainer}>
@@ -268,7 +309,7 @@ export default function App() {
         </View>
       </Modal>
 
-      {/* --- REVENUECAT PAYWALL MODAL --- */}
+      {/* --- REVENUECAT PAYWALL MODAL WITH INTERACTIVE TIERS --- */}
       <Modal visible={paywallModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, styles.paywallBox]}>
@@ -301,8 +342,11 @@ export default function App() {
               </View>
             </View>
 
-            {/* Pricing Options */}
-            <TouchableOpacity style={styles.planCardSelected}>
+            {/* Selectable Pricing Options */}
+            <TouchableOpacity 
+              style={selectedPlan === 'annual' ? styles.planCardSelected : styles.planCard}
+              onPress={() => setSelectedPlan('annual')}
+            >
               <View>
                 <Text style={styles.planTitle}>Annual Access</Text>
                 <Text style={styles.planSub}>7-Day Free Trial • $29.99/yr</Text>
@@ -310,18 +354,20 @@ export default function App() {
               <Text style={styles.savingsTag}>SAVE 50%</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.planCard}>
+            <TouchableOpacity 
+              style={selectedPlan === 'monthly' ? styles.planCardSelected : styles.planCard}
+              onPress={() => setSelectedPlan('monthly')}
+            >
               <View>
                 <Text style={styles.planTitle}>Monthly Access</Text>
                 <Text style={styles.planSub}>$4.99 / month</Text>
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.subscribeButton} onPress={() => {
-              Alert.alert('RevenueCat SDK Active', 'Paywall integration successful!');
-              setPaywallModalVisible(false);
-            }}>
-              <Text style={styles.subscribeText}>Start 7-Day Free Trial</Text>
+            <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribe}>
+              <Text style={styles.subscribeText}>
+                {selectedPlan === 'annual' ? 'Start 7-Day Free Trial' : 'Subscribe Now ($4.99/mo)'}
+              </Text>
             </TouchableOpacity>
 
             <Text style={styles.legalText}>Powered by RevenueCat • Cancel anytime in store settings</Text>
@@ -338,6 +384,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1f1322' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brandTitle: { fontSize: 22, fontWeight: 'bold', color: '#ffffff' },
+  proHeaderBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#270a16', borderWidth: 1, borderColor: '#e11d48', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 4 },
+  proHeaderBadgeText: { color: '#fb7185', fontWeight: 'bold', fontSize: 10 },
   addButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#be123c', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, gap: 4 },
   addButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
   scrollContent: { padding: 20 },
@@ -373,8 +421,10 @@ const styles = StyleSheet.create({
   badgeTextWhite: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
   
   proBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1f0813', borderWidth: 1, borderColor: '#e11d48', borderRadius: 12, padding: 16, marginTop: 12, gap: 12 },
+  proActiveBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(16, 185, 129, 0.12)', borderWidth: 1, borderColor: '#10b981', borderRadius: 12, padding: 16, marginTop: 12, gap: 12 },
   proTextGroup: { flex: 1 },
   proTitle: { color: '#fb7185', fontWeight: 'bold', fontSize: 15 },
+  proActiveTitle: { color: '#10b981', fontWeight: 'bold', fontSize: 15 },
   proSub: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.85)', justifyContent: 'flex-end' },
@@ -382,7 +432,6 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
   
-  // Upload Receipt UI
   uploadBox: { backgroundColor: '#0a080d', borderRadius: 12, borderWidth: 1, borderColor: '#3b1222', borderStyle: 'dashed', padding: 16, marginBottom: 16, alignItems: 'center', justifyContent: 'center', minHeight: 90 },
   uploadPlaceholder: { alignItems: 'center', gap: 6 },
   uploadText: { color: '#fb7185', fontSize: 13, fontWeight: '500' },
@@ -404,11 +453,11 @@ const styles = StyleSheet.create({
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   featureText: { color: '#e2e8f0', fontSize: 14 },
   planCardSelected: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#270a16', borderWidth: 2, borderColor: '#e11d48', borderRadius: 12, padding: 16, marginBottom: 10 },
-  planCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#140a12', borderWidth: 1, borderColor: '#2e1220', borderRadius: 12, padding: 16, marginBottom: 16 },
+  planCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#140a12', borderWidth: 1, borderColor: '#2e1220', borderRadius: 12, padding: 16, marginBottom: 10 },
   planTitle: { color: '#ffffff', fontWeight: 'bold', fontSize: 15 },
   planSub: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   savingsTag: { backgroundColor: '#e11d48', color: '#ffffff', fontWeight: 'bold', fontSize: 11, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  subscribeButton: { backgroundColor: '#e11d48', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  subscribeButton: { backgroundColor: '#e11d48', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 6 },
   subscribeText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
   legalText: { color: '#64748b', fontSize: 11, textAlign: 'center', marginTop: 12 }
 });
