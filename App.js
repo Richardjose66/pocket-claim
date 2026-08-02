@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -11,7 +11,10 @@ import {
   TextInput,
   Alert
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Shield, Plus, Clock, FileText, TrendingUp, AlertCircle, X, Sparkles, CheckCircle } from 'lucide-react-native';
+
+const STORAGE_KEY = '@pocketclaim_warranties_v1';
 
 export default function App() {
   const [warranties, setWarranties] = useState([
@@ -29,6 +32,30 @@ export default function App() {
   const [newItemStore, setNewItemStore] = useState('');
   const [newItemValue, setNewItemValue] = useState('');
   const [newItemDays, setNewItemDays] = useState('');
+
+  // Load saved warranties on startup
+  useEffect(() => {
+    loadSavedData();
+  }, []);
+
+  const loadSavedData = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved !== null) {
+        setWarranties(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.log('Error loading saved claims', e);
+    }
+  };
+
+  const saveData = async (data) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.log('Error saving claim', e);
+    }
+  };
 
   // Add warranty handler
   const handleAddClaim = () => {
@@ -51,7 +78,10 @@ export default function App() {
       status: statusCalc
     };
 
-    setWarranties([newClaim, ...warranties]);
+    const updatedList = [newClaim, ...warranties];
+    setWarranties(updatedList);
+    saveData(updatedList);
+
     setNewItemName('');
     setNewItemStore('');
     setNewItemValue('');
@@ -110,7 +140,6 @@ export default function App() {
                 <Text style={styles.itemSub}>{item.store} • {item.value}</Text>
               </View>
 
-              {/* High Contrast Expiration Badges with White Text */}
               <View style={[
                 styles.badge, 
                 item.status === 'critical' ? styles.badgeCritical : item.status === 'warning' ? styles.badgeWarning : styles.badgeGood
@@ -257,7 +286,6 @@ const styles = StyleSheet.create({
   addButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
   scrollContent: { padding: 20 },
   
-  // Wine Red Hero Card
   statsCard: { 
     backgroundColor: '#1c0d18', 
     borderRadius: 16, 
@@ -282,11 +310,10 @@ const styles = StyleSheet.create({
   itemTitle: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
   itemSub: { color: '#94a3b8', fontSize: 13, marginTop: 2 },
   
-  // High Contrast Badges with White Text
   badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, gap: 5 },
-  badgeCritical: { backgroundColor: '#9f1239' }, // Deep Crimson
-  badgeWarning: { backgroundColor: '#b45309' },  // Deep Amber
-  badgeGood: { backgroundColor: '#047857' },     // Deep Emerald
+  badgeCritical: { backgroundColor: '#9f1239' },
+  badgeWarning: { backgroundColor: '#b45309' },
+  badgeGood: { backgroundColor: '#047857' },
   badgeTextWhite: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
   
   proBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1f0813', borderWidth: 1, borderColor: '#e11d48', borderRadius: 12, padding: 16, marginTop: 12, gap: 12 },
@@ -294,7 +321,6 @@ const styles = StyleSheet.create({
   proTitle: { color: '#fb7185', fontWeight: 'bold', fontSize: 15 },
   proSub: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   
-  // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.85)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#140a12', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderWidth: 1, borderColor: '#3b1222' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
@@ -303,7 +329,6 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#e11d48', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
 
-  // Paywall Modal
   paywallBox: { backgroundColor: '#0a080d', borderTopWidth: 2, borderTopColor: '#e11d48' },
   closePaywall: { alignSelf: 'flex-end' },
   paywallHeader: { alignItems: 'center', marginVertical: 12 },
