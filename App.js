@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Purchases from 'react-native-purchases';
 import { 
   StyleSheet, 
   Text, 
@@ -15,7 +16,21 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { Shield, Plus, Clock, FileText, TrendingUp, AlertCircle, X, Sparkles, CheckCircle, Camera, Crown } from 'lucide-react-native';
+import { 
+  Shield, 
+  Plus, 
+  Clock, 
+  FileText, 
+  TrendingUp, 
+  AlertCircle, 
+  X, 
+  Sparkles, 
+  CheckCircle, 
+  Camera, 
+  Crown, 
+  Trash2, 
+  Check 
+} from 'lucide-react-native';
 
 const STORAGE_KEY = '@pocketclaim_warranties_v1';
 const PRO_KEY = '@pocketclaim_pro_status_v1';
@@ -43,8 +58,14 @@ export default function App() {
   const [receiptImage, setReceiptImage] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Load saved warranties & Pro status on startup
+  // Initialize RevenueCat SDK & load saved data on startup
   useEffect(() => {
+    try {
+      Purchases.configure({ apiKey: "test_SaJ0j1PFIAYUwoSPCNINLxQblgF" });
+    } catch (e) {
+      console.log("RevenueCat web preview mode", e);
+    }
+
     loadSavedData();
   }, []);
 
@@ -68,6 +89,25 @@ export default function App() {
     }
   };
 
+  // Handle Delete Warranty
+  const handleDeleteClaim = (id) => {
+    const updatedList = warranties.filter(item => item.id !== id);
+    setWarranties(updatedList);
+    saveData(updatedList);
+  };
+
+  // Handle Mark as Claimed / Refunded
+  const handleMarkAsClaimed = (id) => {
+    const updatedList = warranties.map(item => {
+      if (item.id === id) {
+        return { ...item, expires: 'Claimed / Refunded', status: 'claimed' };
+      }
+      return item;
+    });
+    setWarranties(updatedList);
+    saveData(updatedList);
+  };
+
   // Handle RevenueCat Purchase Simulation
   const handleSubscribe = async () => {
     setIsPro(true);
@@ -79,7 +119,6 @@ export default function App() {
 
     setPaywallModalVisible(false);
     
-    // Custom Success Notification
     setTimeout(() => {
       Alert.alert(
         '🎉 Welcome to PocketClaim Pro!',
@@ -210,13 +249,36 @@ export default function App() {
 
               <View style={[
                 styles.badge, 
-                item.status === 'critical' ? styles.badgeCritical : item.status === 'warning' ? styles.badgeWarning : styles.badgeGood
+                item.status === 'claimed' ? styles.badgeClaimed :
+                item.status === 'critical' ? styles.badgeCritical : 
+                item.status === 'warning' ? styles.badgeWarning : styles.badgeGood
               ]}>
                 <Clock color="#ffffff" size={13} />
                 <Text style={styles.badgeTextWhite}>
                   {item.expires}
                 </Text>
               </View>
+            </View>
+
+            {/* Quick Action Buttons */}
+            <View style={styles.cardActions}>
+              {item.status !== 'claimed' && (
+                <TouchableOpacity 
+                  style={styles.actionBtnClaim} 
+                  onPress={() => handleMarkAsClaimed(item.id)}
+                >
+                  <Check color="#10b981" size={14} />
+                  <Text style={styles.actionTextClaim}>Mark Claimed</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity 
+                style={styles.actionBtnDelete} 
+                onPress={() => handleDeleteClaim(item.id)}
+              >
+                <Trash2 color="#ef4444" size={14} />
+                <Text style={styles.actionTextDelete}>Delete</Text>
+              </TouchableOpacity>
             </View>
           </View>
         ))}
@@ -309,7 +371,7 @@ export default function App() {
         </View>
       </Modal>
 
-      {/* --- REVENUECAT PAYWALL MODAL WITH INTERACTIVE TIERS --- */}
+      {/* --- REVENUECAT PAYWALL MODAL --- */}
       <Modal visible={paywallModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, styles.paywallBox]}>
@@ -418,8 +480,15 @@ const styles = StyleSheet.create({
   badgeCritical: { backgroundColor: '#9f1239' },
   badgeWarning: { backgroundColor: '#b45309' },
   badgeGood: { backgroundColor: '#047857' },
+  badgeClaimed: { backgroundColor: '#065f46' },
   badgeTextWhite: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
   
+  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#1f101b' },
+  actionBtnClaim: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
+  actionTextClaim: { color: '#10b981', fontSize: 12, fontWeight: '600' },
+  actionBtnDelete: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
+  actionTextDelete: { color: '#ef4444', fontSize: 12, fontWeight: '600' },
+
   proBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1f0813', borderWidth: 1, borderColor: '#e11d48', borderRadius: 12, padding: 16, marginTop: 12, gap: 12 },
   proActiveBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(16, 185, 129, 0.12)', borderWidth: 1, borderColor: '#10b981', borderRadius: 12, padding: 16, marginTop: 12, gap: 12 },
   proTextGroup: { flex: 1 },
