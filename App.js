@@ -6,7 +6,6 @@ import {
   View, 
   ScrollView, 
   TouchableOpacity, 
-  SafeAreaView, 
   StatusBar,
   Modal,
   TextInput,
@@ -14,6 +13,7 @@ import {
   Image,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { 
@@ -197,247 +197,249 @@ export default function App() {
   }, 0);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a080d" />
-      
-      {/* Top Header */}
-      <View style={styles.header}>
-        <View style={styles.brandRow}>
-          <Shield color="#e11d48" size={28} />
-          <Text style={styles.brandTitle}>PocketClaim</Text>
-          {isPro && (
-            <View style={styles.proHeaderBadge}>
-              <Crown color="#fb7185" size={12} />
-              <Text style={styles.proHeaderBadgeText}>PRO</Text>
-            </View>
-          )}
-        </View>
-        <TouchableOpacity style={styles.addButton} onPress={() => setAddModalVisible(true)}>
-          <Plus color="#ffffff" size={20} />
-          <Text style={styles.addButtonText}>Add Claim</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Value Protected Card */}
-        <View style={styles.statsCard}>
-          <Text style={styles.statsLabel}>Total Value Protected</Text>
-          <Text style={styles.statsValue}>${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
-          <View style={styles.statsFooter}>
-            <TrendingUp color="#fb7185" size={16} />
-            <Text style={styles.statsSubtext}>{warranties.length} Active Warranties & Receipts</Text>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0a080d" />
+        
+        {/* Top Header */}
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            <Shield color="#e11d48" size={28} />
+            <Text style={styles.brandTitle}>PocketClaim</Text>
+            {isPro && (
+              <View style={styles.proHeaderBadge}>
+                <Crown color="#fb7185" size={12} />
+                <Text style={styles.proHeaderBadgeText}>PRO</Text>
+              </View>
+            )}
           </View>
+          <TouchableOpacity style={styles.addButton} onPress={() => setAddModalVisible(true)}>
+            <Plus color="#ffffff" size={20} />
+            <Text style={styles.addButtonText}>Add Claim</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Section Header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Upcoming Expirations</Text>
-          <Text style={styles.seeAll}>View All</Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Value Protected Card */}
+          <View style={styles.statsCard}>
+            <Text style={styles.statsLabel}>Total Value Protected</Text>
+            <Text style={styles.statsValue}>${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
+            <View style={styles.statsFooter}>
+              <TrendingUp color="#fb7185" size={16} />
+              <Text style={styles.statsSubtext}>{warranties.length} Active Warranties & Receipts</Text>
+            </View>
+          </View>
 
-        {/* Warranty Cards */}
-        {warranties.map((item) => (
-          <View key={item.id} style={styles.claimCard}>
-            <View style={styles.cardMain}>
-              <View style={styles.iconBox}>
-                <FileText color="#fb7185" size={22} />
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={styles.itemTitle}>{item.item}</Text>
-                <Text style={styles.itemSub}>{item.store} • {item.value}</Text>
+          {/* Section Header */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Expirations</Text>
+            <Text style={styles.seeAll}>View All</Text>
+          </View>
+
+          {/* Warranty Cards */}
+          {warranties.map((item) => (
+            <View key={item.id} style={styles.claimCard}>
+              <View style={styles.cardMain}>
+                <View style={styles.iconBox}>
+                  <FileText color="#fb7185" size={22} />
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.itemTitle}>{item.item}</Text>
+                  <Text style={styles.itemSub}>{item.store} • {item.value}</Text>
+                </View>
+
+                <View style={[
+                  styles.badge, 
+                  item.status === 'claimed' ? styles.badgeClaimed :
+                  item.status === 'critical' ? styles.badgeCritical : 
+                  item.status === 'warning' ? styles.badgeWarning : styles.badgeGood
+                ]}>
+                  <Clock color="#ffffff" size={13} />
+                  <Text style={styles.badgeTextWhite}>
+                    {item.expires}
+                  </Text>
+                </View>
               </View>
 
-              <View style={[
-                styles.badge, 
-                item.status === 'claimed' ? styles.badgeClaimed :
-                item.status === 'critical' ? styles.badgeCritical : 
-                item.status === 'warning' ? styles.badgeWarning : styles.badgeGood
-              ]}>
-                <Clock color="#ffffff" size={13} />
-                <Text style={styles.badgeTextWhite}>
-                  {item.expires}
-                </Text>
+              {/* Quick Action Buttons */}
+              <View style={styles.cardActions}>
+                {item.status !== 'claimed' && (
+                  <TouchableOpacity 
+                    style={styles.actionBtnClaim} 
+                    onPress={() => handleMarkAsClaimed(item.id)}
+                  >
+                    <Check color="#10b981" size={14} />
+                    <Text style={styles.actionTextClaim}>Mark Claimed</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity 
+                  style={styles.actionBtnDelete} 
+                  onPress={() => handleDeleteClaim(item.id)}
+                >
+                  <Trash2 color="#ef4444" size={14} />
+                  <Text style={styles.actionTextDelete}>Delete</Text>
+                </TouchableOpacity>
               </View>
             </View>
+          ))}
 
-            {/* Quick Action Buttons */}
-            <View style={styles.cardActions}>
-              {item.status !== 'claimed' && (
-                <TouchableOpacity 
-                  style={styles.actionBtnClaim} 
-                  onPress={() => handleMarkAsClaimed(item.id)}
-                >
-                  <Check color="#10b981" size={14} />
-                  <Text style={styles.actionTextClaim}>Mark Claimed</Text>
+          {/* Dynamic RevenueCat Banner */}
+          {isPro ? (
+            <View style={styles.proActiveBanner}>
+              <CheckCircle color="#10b981" size={20} />
+              <View style={styles.proTextGroup}>
+                <Text style={styles.proActiveTitle}>Gmail Auto-Sync Active</Text>
+                <Text style={styles.proSub}>Scanning inbox automatically for digital receipts.</Text>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.proBanner} onPress={() => setPaywallModalVisible(true)}>
+              <AlertCircle color="#fb7185" size={20} />
+              <View style={styles.proTextGroup}>
+                <Text style={styles.proTitle}>Unlock Auto-Receipt Sync</Text>
+                <Text style={styles.proSub}>Automatically scan Gmail for purchase warranties.</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+
+        {/* --- ADD CLAIM MODAL WITH RECEIPT SCANNER --- */}
+        <Modal visible={addModalVisible} animationType="slide" transparent={true}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Warranty / Receipt</Text>
+                <TouchableOpacity onPress={() => { setAddModalVisible(false); setReceiptImage(null); }}>
+                  <X color="#94a3b8" size={22} />
                 </TouchableOpacity>
-              )}
+              </View>
 
-              <TouchableOpacity 
-                style={styles.actionBtnDelete} 
-                onPress={() => handleDeleteClaim(item.id)}
-              >
-                <Trash2 color="#ef4444" size={14} />
-                <Text style={styles.actionTextDelete}>Delete</Text>
+              <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
+                {receiptImage ? (
+                  <View style={styles.receiptPreviewContainer}>
+                    <Image source={{ uri: receiptImage }} style={styles.receiptImagePreview} />
+                    {isScanning && (
+                      <View style={styles.scanningOverlay}>
+                        <ActivityIndicator size="small" color="#e11d48" />
+                        <Text style={styles.scanningText}>AI Scanning Receipt...</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <Camera color="#fb7185" size={24} />
+                    <Text style={styles.uploadText}>Upload Receipt Photo for AI Auto-Fill</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TextInput 
+                style={styles.input} 
+                placeholder="Item Name (e.g. iPad Air)" 
+                placeholderTextColor="#64748b"
+                value={newItemName}
+                onChangeText={setNewItemName}
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Store / Retailer (e.g. Target)" 
+                placeholderTextColor="#64748b"
+                value={newItemStore}
+                onChangeText={setNewItemStore}
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Item Price ($)" 
+                placeholderTextColor="#64748b"
+                keyboardType="numeric"
+                value={newItemValue}
+                onChangeText={setNewItemValue}
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Warranty Duration in Days (e.g. 365)" 
+                placeholderTextColor="#64748b"
+                keyboardType="numeric"
+                value={newItemDays}
+                onChangeText={setNewItemDays}
+              />
+
+              <TouchableOpacity style={styles.saveButton} onPress={handleAddClaim}>
+                <Text style={styles.saveButtonText}>Save Item</Text>
               </TouchableOpacity>
             </View>
           </View>
-        ))}
+        </Modal>
 
-        {/* Dynamic RevenueCat Banner */}
-        {isPro ? (
-          <View style={styles.proActiveBanner}>
-            <CheckCircle color="#10b981" size={20} />
-            <View style={styles.proTextGroup}>
-              <Text style={styles.proActiveTitle}>Gmail Auto-Sync Active</Text>
-              <Text style={styles.proSub}>Scanning inbox automatically for digital receipts.</Text>
-            </View>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.proBanner} onPress={() => setPaywallModalVisible(true)}>
-            <AlertCircle color="#fb7185" size={20} />
-            <View style={styles.proTextGroup}>
-              <Text style={styles.proTitle}>Unlock Auto-Receipt Sync</Text>
-              <Text style={styles.proSub}>Automatically scan Gmail for purchase warranties.</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
-
-      {/* --- ADD CLAIM MODAL WITH RECEIPT SCANNER --- */}
-      <Modal visible={addModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Warranty / Receipt</Text>
-              <TouchableOpacity onPress={() => { setAddModalVisible(false); setReceiptImage(null); }}>
+        {/* --- REVENUECAT PAYWALL MODAL --- */}
+        <Modal visible={paywallModalVisible} animationType="slide" transparent={true}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, styles.paywallBox]}>
+              <TouchableOpacity style={styles.closePaywall} onPress={() => setPaywallModalVisible(false)}>
                 <X color="#94a3b8" size={22} />
               </TouchableOpacity>
-            </View>
 
-            <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
-              {receiptImage ? (
-                <View style={styles.receiptPreviewContainer}>
-                  <Image source={{ uri: receiptImage }} style={styles.receiptImagePreview} />
-                  {isScanning && (
-                    <View style={styles.scanningOverlay}>
-                      <ActivityIndicator size="small" color="#e11d48" />
-                      <Text style={styles.scanningText}>AI Scanning Receipt...</Text>
-                    </View>
-                  )}
+              <View style={styles.paywallHeader}>
+                <Sparkles color="#e11d48" size={40} />
+                <Text style={styles.paywallTitle}>PocketClaim Pro</Text>
+                <Text style={styles.paywallSub}>Never manually log a physical receipt again.</Text>
+              </View>
+
+              <View style={styles.featureList}>
+                <View style={styles.featureRow}>
+                  <CheckCircle color="#e11d48" size={18} />
+                  <Text style={styles.featureText}>Automatic Gmail Receipt Auto-Scan</Text>
                 </View>
-              ) : (
-                <View style={styles.uploadPlaceholder}>
-                  <Camera color="#fb7185" size={24} />
-                  <Text style={styles.uploadText}>Upload Receipt Photo for AI Auto-Fill</Text>
+                <View style={styles.featureRow}>
+                  <CheckCircle color="#e11d48" size={18} />
+                  <Text style={styles.featureText}>Unlimited Warranty & Receipt Storage</Text>
                 </View>
-              )}
-            </TouchableOpacity>
+                <View style={styles.featureRow}>
+                  <CheckCircle color="#e11d48" size={18} />
+                  <Text style={styles.featureText}>Price-Drop Refund Instant Alerts</Text>
+                </View>
+                <View style={styles.featureRow}>
+                  <CheckCircle color="#e11d48" size={18} />
+                  <Text style={styles.featureText}>Export PDF Reports for Insurance Claims</Text>
+                </View>
+              </View>
 
-            <TextInput 
-              style={styles.input} 
-              placeholder="Item Name (e.g. iPad Air)" 
-              placeholderTextColor="#64748b"
-              value={newItemName}
-              onChangeText={setNewItemName}
-            />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Store / Retailer (e.g. Target)" 
-              placeholderTextColor="#64748b"
-              value={newItemStore}
-              onChangeText={setNewItemStore}
-            />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Item Price ($)" 
-              placeholderTextColor="#64748b"
-              keyboardType="numeric"
-              value={newItemValue}
-              onChangeText={setNewItemValue}
-            />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Warranty Duration in Days (e.g. 365)" 
-              placeholderTextColor="#64748b"
-              keyboardType="numeric"
-              value={newItemDays}
-              onChangeText={setNewItemDays}
-            />
+              {/* Selectable Pricing Options */}
+              <TouchableOpacity 
+                style={selectedPlan === 'annual' ? styles.planCardSelected : styles.planCard}
+                onPress={() => setSelectedPlan('annual')}
+              >
+                <View>
+                  <Text style={styles.planTitle}>Annual Access</Text>
+                  <Text style={styles.planSub}>7-Day Free Trial • $29.99/yr</Text>
+                </View>
+                <Text style={styles.savingsTag}>SAVE 50%</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleAddClaim}>
-              <Text style={styles.saveButtonText}>Save Item</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+              <TouchableOpacity 
+                style={selectedPlan === 'monthly' ? styles.planCardSelected : styles.planCard}
+                onPress={() => setSelectedPlan('monthly')}
+              >
+                <View>
+                  <Text style={styles.planTitle}>Monthly Access</Text>
+                  <Text style={styles.planSub}>$4.99 / month</Text>
+                </View>
+              </TouchableOpacity>
 
-      {/* --- REVENUECAT PAYWALL MODAL --- */}
-      <Modal visible={paywallModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.paywallBox]}>
-            <TouchableOpacity style={styles.closePaywall} onPress={() => setPaywallModalVisible(false)}>
-              <X color="#94a3b8" size={22} />
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribe}>
+                <Text style={styles.subscribeText}>
+                  {selectedPlan === 'annual' ? 'Start 7-Day Free Trial' : 'Subscribe Now ($4.99/mo)'}
+                </Text>
+              </TouchableOpacity>
 
-            <View style={styles.paywallHeader}>
-              <Sparkles color="#e11d48" size={40} />
-              <Text style={styles.paywallTitle}>PocketClaim Pro</Text>
-              <Text style={styles.paywallSub}>Never manually log a physical receipt again.</Text>
+              <Text style={styles.legalText}>Powered by RevenueCat • Cancel anytime in store settings</Text>
             </View>
-
-            <View style={styles.featureList}>
-              <View style={styles.featureRow}>
-                <CheckCircle color="#e11d48" size={18} />
-                <Text style={styles.featureText}>Automatic Gmail Receipt Auto-Scan</Text>
-              </View>
-              <View style={styles.featureRow}>
-                <CheckCircle color="#e11d48" size={18} />
-                <Text style={styles.featureText}>Unlimited Warranty & Receipt Storage</Text>
-              </View>
-              <View style={styles.featureRow}>
-                <CheckCircle color="#e11d48" size={18} />
-                <Text style={styles.featureText}>Price-Drop Refund Instant Alerts</Text>
-              </View>
-              <View style={styles.featureRow}>
-                <CheckCircle color="#e11d48" size={18} />
-                <Text style={styles.featureText}>Export PDF Reports for Insurance Claims</Text>
-              </View>
-            </View>
-
-            {/* Selectable Pricing Options */}
-            <TouchableOpacity 
-              style={selectedPlan === 'annual' ? styles.planCardSelected : styles.planCard}
-              onPress={() => setSelectedPlan('annual')}
-            >
-              <View>
-                <Text style={styles.planTitle}>Annual Access</Text>
-                <Text style={styles.planSub}>7-Day Free Trial • $29.99/yr</Text>
-              </View>
-              <Text style={styles.savingsTag}>SAVE 50%</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={selectedPlan === 'monthly' ? styles.planCardSelected : styles.planCard}
-              onPress={() => setSelectedPlan('monthly')}
-            >
-              <View>
-                <Text style={styles.planTitle}>Monthly Access</Text>
-                <Text style={styles.planSub}>$4.99 / month</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribe}>
-              <Text style={styles.subscribeText}>
-                {selectedPlan === 'annual' ? 'Start 7-Day Free Trial' : 'Subscribe Now ($4.99/mo)'}
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={styles.legalText}>Powered by RevenueCat • Cancel anytime in store settings</Text>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
