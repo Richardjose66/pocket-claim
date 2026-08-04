@@ -31,7 +31,10 @@ import {
   Trash2, 
   Check, 
   Search,
-  Inbox
+  Inbox,
+  CornerDownLeft,
+  Bell,
+  BellRing
 } from 'lucide-react-native';
 
 const STORAGE_KEY = '@pocketclaim_warranties_v1';
@@ -39,14 +42,15 @@ const PRO_KEY = '@pocketclaim_pro_status_v1';
 
 export default function App() {
   const [warranties, setWarranties] = useState([
-    { id: '1', item: 'MacBook Pro 16"', store: 'Apple Store', expires: '12 Days Left', value: '$2,499', status: 'warning', daysRemaining: 12 },
-    { id: '2', item: 'Sony WH-1000XM5', store: 'Amazon', expires: '180 Days Left', value: '$399', status: 'good', daysRemaining: 180 },
-    { id: '3', item: 'Dyson V15 Vacuum', store: 'Best Buy', expires: '3 Days Left', value: '$749', status: 'critical', daysRemaining: 3 },
+    { id: '1', item: 'MacBook Pro 16"', store: 'Apple Store', expires: '12 Days Left', value: '$2,499', status: 'warning', daysRemaining: 12, reminderActive: true },
+    { id: '2', item: 'Sony WH-1000XM5', store: 'Amazon', expires: '180 Days Left', value: '$399', status: 'good', daysRemaining: 180, reminderActive: false },
+    { id: '3', item: 'Dyson V15 Vacuum', store: 'Best Buy', expires: '3 Days Left', value: '$749', status: 'critical', daysRemaining: 3, reminderActive: true },
   ]);
 
-  // Search & Filter State
+  // Search & Auto-Suggestion State
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('All'); // 'All', 'Active', 'Expiring Soon', 'Claimed'
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('All');
   const filterPills = ['All', 'Active', 'Expiring Soon', 'Claimed'];
 
   // Pro State & Subscription Tiers
@@ -65,7 +69,7 @@ export default function App() {
   const [receiptImage, setReceiptImage] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Initialize RevenueCat SDK & load saved data on startup
+  // Initialize RevenueCat SDK & load saved data
   useEffect(() => {
     try {
       Purchases.configure({ apiKey: "test_SaJ0j1PFIAYUwoSPCNINLxQblgF" });
@@ -96,15 +100,50 @@ export default function App() {
     }
   };
 
+  // Toggle Push Notification Reminder
+  const handleToggleReminder = (id) => {
+    const updatedList = warranties.map(item => {
+      if (item.id === id) {
+        const nextState = !item.reminderActive;
+        if (nextState) {
+          Alert.alert(
+            '🔔 Reminder Set!',
+            `Push notification scheduled 3 days before ${item.item}'s warranty expires.`
+          );
+        }
+        return { ...item, reminderActive: nextState };
+      }
+      return item;
+    });
+
+    setWarranties(updatedList);
+    saveData(updatedList);
+  };
+
+  // Generate Auto-Suggestions based on search text
+  const getAutoSuggestions = () => {
+    if (!searchQuery.trim()) return [];
+    
+    const query = searchQuery.toLowerCase();
+    const suggestions = new Set();
+
+    warranties.forEach(item => {
+      if (item.item.toLowerCase().includes(query)) suggestions.add(item.item);
+      if (item.store.toLowerCase().includes(query)) suggestions.add(item.store);
+    });
+
+    return Array.from(suggestions).slice(0, 4);
+  };
+
+  const suggestionsList = getAutoSuggestions();
+
   // Filter Logic
   const getFilteredWarranties = () => {
     return warranties.filter(item => {
-      // Apply Search Query
       const matchesSearch = searchQuery === '' || 
         item.item.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.store.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // Apply Pill Filter
       let matchesFilter = true;
       if (activeFilter === 'Active') {
         matchesFilter = item.status === 'good' || item.status === 'warning' || item.status === 'critical';
@@ -127,11 +166,11 @@ export default function App() {
     saveData(updatedList);
   };
 
-  // Handle Mark as Claimed / Refunded
+  // Handle Mark as Claimed
   const handleMarkAsClaimed = (id) => {
     const updatedList = warranties.map(item => {
       if (item.id === id) {
-        return { ...item, expires: 'Claimed / Refunded', status: 'claimed' };
+        return { ...item, expires: 'Claimed / Refunded', status: 'claimed', reminderActive: false };
       }
       return item;
     });
@@ -207,7 +246,8 @@ export default function App() {
       value: `$${newItemValue.replace('$', '')}`,
       expires: `${daysNum} Days Left`,
       status: statusCalc,
-      daysRemaining: daysNum
+      daysRemaining: daysNum,
+      reminderActive: true
     };
 
     const updatedList = [newClaim, ...warranties];
@@ -251,9 +291,8 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-        {/* Global Controls (Search & Filter) */}
+        {/* Global Controls */}
         <View style={styles.globalControls}>
-          {/* Search Bar */}
           <View style={styles.searchBar}>
             <Search color="#64748b" size={20} />
             <TextInput 
@@ -261,14 +300,38 @@ export default function App() {
               placeholder="Search items or stores..." 
               placeholderTextColor="#64748b"
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
             />
             {searchQuery !== '' && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setShowSuggestions(false); }}>
                 <X color="#94a3b8" size={18} />
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Auto-Suggestion Dropdown */}
+          {showSuggestions && suggestionsList.length > 0 && (
+            <View style={styles.suggestionsDropdown}>
+              {suggestionsList.map((suggestion, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.suggestionItem}
+                  onPress={() => {
+                    setSearchQuery(suggestion);
+                    setShowSuggestions(false);
+                  }}
+                >
+                  <Search color="#e11d48" size={14} />
+                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                  <CornerDownLeft color="#475569" size={12} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Filter Pills */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsContainer}>
@@ -286,7 +349,10 @@ export default function App() {
           </ScrollView>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          onScrollBeginDrag={() => setShowSuggestions(false)}
+        >
           {/* Value Protected Card */}
           <View style={styles.statsCard}>
             <Text style={styles.statsLabel}>Total Value Protected</Text>
@@ -329,6 +395,23 @@ export default function App() {
 
                 {/* Quick Action Buttons */}
                 <View style={styles.cardActions}>
+                  {/* Push Notification Toggle */}
+                  {item.status !== 'claimed' && (
+                    <TouchableOpacity 
+                      style={item.reminderActive ? styles.actionBtnReminderActive : styles.actionBtnReminderInactive} 
+                      onPress={() => handleToggleReminder(item.id)}
+                    >
+                      {item.reminderActive ? (
+                        <BellRing color="#fb7185" size={14} />
+                      ) : (
+                        <Bell color="#64748b" size={14} />
+                      )}
+                      <Text style={item.reminderActive ? styles.actionTextReminderActive : styles.actionTextReminderInactive}>
+                        {item.reminderActive ? 'Reminder Set' : 'Remind Me'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
                   {item.status !== 'claimed' && (
                     <TouchableOpacity 
                       style={styles.actionBtnClaim} 
@@ -525,12 +608,16 @@ const styles = StyleSheet.create({
   addButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#be123c', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, gap: 4 },
   addButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
   
-  globalControls: { backgroundColor: '#0a080d', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6, gap: 12, borderBottomWidth: 1, borderBottomColor: '#1f1322', zIndex: 10 },
+  globalControls: { backgroundColor: '#0a080d', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6, gap: 10, borderBottomWidth: 1, borderBottomColor: '#1f1322', zIndex: 20 },
   
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#140a12', borderRadius: 12, borderWidth: 1, borderColor: '#2e1220', paddingHorizontal: 12, height: 48, gap: 8 },
   searchInput: { flex: 1, color: '#ffffff', fontSize: 15 },
 
-  filterPillsContainer: { gap: 8, paddingBottom: 8 },
+  suggestionsDropdown: { backgroundColor: '#140a12', borderWidth: 1, borderColor: '#3b1222', borderRadius: 12, overflow: 'hidden', marginTop: -4 },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1f101b', gap: 10 },
+  suggestionText: { flex: 1, color: '#e2e8f0', fontSize: 14, fontWeight: '500' },
+
+  filterPillsContainer: { gap: 8, paddingBottom: 8, marginTop: 4 },
   pillInactive: { backgroundColor: '#140a12', borderWidth: 1, borderColor: '#2e1220', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   pillActive: { backgroundColor: '#be123c', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   pillTextInactive: { color: '#94a3b8', fontSize: 13, fontWeight: '500' },
@@ -569,7 +656,13 @@ const styles = StyleSheet.create({
   badgeClaimed: { backgroundColor: '#065f46' },
   badgeTextWhite: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
   
-  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#1f101b' },
+  // Card Action Buttons
+  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#1f101b' },
+  actionBtnReminderActive: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(225, 29, 72, 0.15)', borderWidth: 1, borderColor: '#e11d48', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
+  actionTextReminderActive: { color: '#fb7185', fontSize: 12, fontWeight: '600' },
+  actionBtnReminderInactive: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#0a080d', borderWidth: 1, borderColor: '#2e1220', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
+  actionTextReminderInactive: { color: '#94a3b8', fontSize: 12, fontWeight: '500' },
+  
   actionBtnClaim: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
   actionTextClaim: { color: '#10b981', fontSize: 12, fontWeight: '600' },
   actionBtnDelete: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
