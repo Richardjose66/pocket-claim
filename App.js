@@ -29,7 +29,9 @@ import {
   Camera, 
   Crown, 
   Trash2, 
-  Check 
+  Check, 
+  Search,
+  Inbox
 } from 'lucide-react-native';
 
 const STORAGE_KEY = '@pocketclaim_warranties_v1';
@@ -37,10 +39,15 @@ const PRO_KEY = '@pocketclaim_pro_status_v1';
 
 export default function App() {
   const [warranties, setWarranties] = useState([
-    { id: '1', item: 'MacBook Pro 16"', store: 'Apple Store', expires: '12 Days Left', value: '$2,499', status: 'warning' },
-    { id: '2', item: 'Sony WH-1000XM5', store: 'Amazon', expires: '180 Days Left', value: '$399', status: 'good' },
-    { id: '3', item: 'Dyson V15 Vacuum', store: 'Best Buy', expires: '3 Days Left', value: '$749', status: 'critical' },
+    { id: '1', item: 'MacBook Pro 16"', store: 'Apple Store', expires: '12 Days Left', value: '$2,499', status: 'warning', daysRemaining: 12 },
+    { id: '2', item: 'Sony WH-1000XM5', store: 'Amazon', expires: '180 Days Left', value: '$399', status: 'good', daysRemaining: 180 },
+    { id: '3', item: 'Dyson V15 Vacuum', store: 'Best Buy', expires: '3 Days Left', value: '$749', status: 'critical', daysRemaining: 3 },
   ]);
+
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All'); // 'All', 'Active', 'Expiring Soon', 'Claimed'
+  const filterPills = ['All', 'Active', 'Expiring Soon', 'Claimed'];
 
   // Pro State & Subscription Tiers
   const [isPro, setIsPro] = useState(false);
@@ -88,6 +95,30 @@ export default function App() {
       console.log('Error saving claim', e);
     }
   };
+
+  // Filter Logic
+  const getFilteredWarranties = () => {
+    return warranties.filter(item => {
+      // Apply Search Query
+      const matchesSearch = searchQuery === '' || 
+        item.item.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.store.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Apply Pill Filter
+      let matchesFilter = true;
+      if (activeFilter === 'Active') {
+        matchesFilter = item.status === 'good' || item.status === 'warning' || item.status === 'critical';
+      } else if (activeFilter === 'Expiring Soon') {
+        matchesFilter = item.status === 'critical' || item.status === 'warning';
+      } else if (activeFilter === 'Claimed') {
+        matchesFilter = item.status === 'claimed';
+      }
+
+      return matchesSearch && matchesFilter;
+    });
+  };
+
+  const filteredWarranties = getFilteredWarranties();
 
   // Handle Delete Warranty
   const handleDeleteClaim = (id) => {
@@ -175,7 +206,8 @@ export default function App() {
       store: newItemStore || 'Store Receipt',
       value: `$${newItemValue.replace('$', '')}`,
       expires: `${daysNum} Days Left`,
-      status: statusCalc
+      status: statusCalc,
+      daysRemaining: daysNum
     };
 
     const updatedList = [newClaim, ...warranties];
@@ -219,6 +251,41 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
+        {/* Global Controls (Search & Filter) */}
+        <View style={styles.globalControls}>
+          {/* Search Bar */}
+          <View style={styles.searchBar}>
+            <Search color="#64748b" size={20} />
+            <TextInput 
+              style={styles.searchInput} 
+              placeholder="Search items or stores..." 
+              placeholderTextColor="#64748b"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <X color="#94a3b8" size={18} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Filter Pills */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsContainer}>
+            {filterPills.map(pill => (
+              <TouchableOpacity 
+                key={pill} 
+                style={activeFilter === pill ? styles.pillActive : styles.pillInactive}
+                onPress={() => setActiveFilter(pill)}
+              >
+                <Text style={activeFilter === pill ? styles.pillTextActive : styles.pillTextInactive}>
+                  {pill}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Value Protected Card */}
           <View style={styles.statsCard}>
@@ -230,59 +297,65 @@ export default function App() {
             </View>
           </View>
 
-          {/* Section Header */}
+          {/* Dynamic Warranty List Section */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Expirations</Text>
-            <Text style={styles.seeAll}>View All</Text>
+            <Text style={styles.sectionTitle}>Vault Entries ({filteredWarranties.length})</Text>
           </View>
 
-          {/* Warranty Cards */}
-          {warranties.map((item) => (
-            <View key={item.id} style={styles.claimCard}>
-              <View style={styles.cardMain}>
-                <View style={styles.iconBox}>
-                  <FileText color="#fb7185" size={22} />
-                </View>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.itemTitle}>{item.item}</Text>
-                  <Text style={styles.itemSub}>{item.store} • {item.value}</Text>
+          {filteredWarranties.length > 0 ? (
+            filteredWarranties.map((item) => (
+              <View key={item.id} style={styles.claimCard}>
+                <View style={styles.cardMain}>
+                  <View style={styles.iconBox}>
+                    <FileText color="#fb7185" size={22} />
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.itemTitle}>{item.item}</Text>
+                    <Text style={styles.itemSub}>{item.store} • {item.value}</Text>
+                  </View>
+
+                  <View style={[
+                    styles.badge, 
+                    item.status === 'claimed' ? styles.badgeClaimed :
+                    item.status === 'critical' ? styles.badgeCritical : 
+                    item.status === 'warning' ? styles.badgeWarning : styles.badgeGood
+                  ]}>
+                    <Clock color="#ffffff" size={13} />
+                    <Text style={styles.badgeTextWhite}>
+                      {item.expires}
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={[
-                  styles.badge, 
-                  item.status === 'claimed' ? styles.badgeClaimed :
-                  item.status === 'critical' ? styles.badgeCritical : 
-                  item.status === 'warning' ? styles.badgeWarning : styles.badgeGood
-                ]}>
-                  <Clock color="#ffffff" size={13} />
-                  <Text style={styles.badgeTextWhite}>
-                    {item.expires}
-                  </Text>
-                </View>
-              </View>
+                {/* Quick Action Buttons */}
+                <View style={styles.cardActions}>
+                  {item.status !== 'claimed' && (
+                    <TouchableOpacity 
+                      style={styles.actionBtnClaim} 
+                      onPress={() => handleMarkAsClaimed(item.id)}
+                    >
+                      <Check color="#10b981" size={14} />
+                      <Text style={styles.actionTextClaim}>Mark Claimed</Text>
+                    </TouchableOpacity>
+                  )}
 
-              {/* Quick Action Buttons */}
-              <View style={styles.cardActions}>
-                {item.status !== 'claimed' && (
                   <TouchableOpacity 
-                    style={styles.actionBtnClaim} 
-                    onPress={() => handleMarkAsClaimed(item.id)}
+                    style={styles.actionBtnDelete} 
+                    onPress={() => handleDeleteClaim(item.id)}
                   >
-                    <Check color="#10b981" size={14} />
-                    <Text style={styles.actionTextClaim}>Mark Claimed</Text>
+                    <Trash2 color="#ef4444" size={14} />
+                    <Text style={styles.actionTextDelete}>Delete</Text>
                   </TouchableOpacity>
-                )}
-
-                <TouchableOpacity 
-                  style={styles.actionBtnDelete} 
-                  onPress={() => handleDeleteClaim(item.id)}
-                >
-                  <Trash2 color="#ef4444" size={14} />
-                  <Text style={styles.actionTextDelete}>Delete</Text>
-                </TouchableOpacity>
+                </View>
               </View>
+            ))
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <Inbox color="#1f1322" size={80} />
+              <Text style={styles.emptyStateTitle}>No Matches Found</Text>
+              <Text style={styles.emptyStateSub}>Adjust your search or filter criteria to find items in your vault.</Text>
             </View>
-          ))}
+          )}
 
           {/* Dynamic RevenueCat Banner */}
           {isPro ? (
@@ -405,7 +478,6 @@ export default function App() {
                 </View>
               </View>
 
-              {/* Selectable Pricing Options */}
               <TouchableOpacity 
                 style={selectedPlan === 'annual' ? styles.planCardSelected : styles.planCard}
                 onPress={() => setSelectedPlan('annual')}
@@ -452,7 +524,19 @@ const styles = StyleSheet.create({
   proHeaderBadgeText: { color: '#fb7185', fontWeight: 'bold', fontSize: 10 },
   addButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#be123c', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, gap: 4 },
   addButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
-  scrollContent: { padding: 20 },
+  
+  globalControls: { backgroundColor: '#0a080d', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6, gap: 12, borderBottomWidth: 1, borderBottomColor: '#1f1322', zIndex: 10 },
+  
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#140a12', borderRadius: 12, borderWidth: 1, borderColor: '#2e1220', paddingHorizontal: 12, height: 48, gap: 8 },
+  searchInput: { flex: 1, color: '#ffffff', fontSize: 15 },
+
+  filterPillsContainer: { gap: 8, paddingBottom: 8 },
+  pillInactive: { backgroundColor: '#140a12', borderWidth: 1, borderColor: '#2e1220', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  pillActive: { backgroundColor: '#be123c', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  pillTextInactive: { color: '#94a3b8', fontSize: 13, fontWeight: '500' },
+  pillTextActive: { color: '#ffffff', fontSize: 13, fontWeight: '600' },
+
+  scrollContent: { padding: 20, paddingTop: 16 },
   
   statsCard: { 
     backgroundColor: '#1c0d18', 
@@ -490,6 +574,10 @@ const styles = StyleSheet.create({
   actionTextClaim: { color: '#10b981', fontSize: 12, fontWeight: '600' },
   actionBtnDelete: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
   actionTextDelete: { color: '#ef4444', fontSize: 12, fontWeight: '600' },
+
+  emptyStateContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 50, gap: 12 },
+  emptyStateTitle: { color: '#94a3b8', fontSize: 18, fontWeight: 'bold' },
+  emptyStateSub: { color: '#64748b', fontSize: 14, textAlign: 'center', paddingHorizontal: 20 },
 
   proBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1f0813', borderWidth: 1, borderColor: '#e11d48', borderRadius: 12, padding: 16, marginTop: 12, gap: 12 },
   proActiveBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(16, 185, 129, 0.12)', borderWidth: 1, borderColor: '#10b981', borderRadius: 12, padding: 16, marginTop: 12, gap: 12 },
