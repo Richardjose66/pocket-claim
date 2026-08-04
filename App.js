@@ -11,7 +11,9 @@ import {
   TextInput,
   Alert,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  Linking,
+  Platform
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +33,7 @@ import {
   Crown, 
   Trash2, 
   Check, 
-  Search,
+  Search, 
   Inbox,
   CornerDownLeft,
   Bell,
@@ -117,7 +119,7 @@ export default function App() {
   const [receiptImage, setReceiptImage] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Initialize RevenueCat SDK & load saved data / onboarding check on startup
+  // Initialize RevenueCat SDK & load saved data
   useEffect(() => {
     try {
       Purchases.configure({ apiKey: "test_SaJ0j1PFIAYUwoSPCNINLxQblgF" });
@@ -224,6 +226,49 @@ export default function App() {
     }
   };
 
+  // Optimized Hybrid Mail Handler
+  const handleOpenMail = async () => {
+    if (!selectedItemForClaim) return;
+
+    // Verified Demo Store Mapping (leave unmapped blank to prevent hallucinated emails)
+    const storeEmailMap = {
+      'Amazon': 'cs-reply@amazon.com',
+      'Best Buy': 'customercare@bestbuy.com',
+      'Apple Store': 'support@apple.com',
+      'GameStop': 'support@gamestop.com'
+    };
+
+    const toEmail = storeEmailMap[selectedItemForClaim.store] || '';
+    const subject = `Claim Request - ${selectedItemForClaim.item}`;
+    const body = generatedLetter;
+
+    // WEB PREVIEW FALLBACK
+    if (Platform.OS === 'web') {
+      await Clipboard.setStringAsync(generatedLetter);
+      Alert.alert(
+        '📧 Web Mail Draft Ready',
+        `Claim letter copied to clipboard!\n\nDestination: ${toEmail || 'Store Customer Support'}\n\nOpen your webmail (Gmail/Outlook) and paste your letter to send.`,
+        [{ text: 'Got It!', style: 'default' }]
+      );
+      return;
+    }
+
+    // MOBILE (EXPO GO & PRODUCTION)
+    const mailtoUrl = `mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    try {
+      // Direct call bypasses Expo Go canOpenURL scheme restrictions
+      await Linking.openURL(mailtoUrl);
+    } catch (e) {
+      console.log('Error opening mail client', e);
+      await Clipboard.setStringAsync(generatedLetter);
+      Alert.alert(
+        '📋 Letter Copied', 
+        `Letter copied to clipboard! Open your email app and paste to send to ${toEmail || 'support'}.`
+      );
+    }
+  };
+
   // Auto-Suggestions Search
   const getAutoSuggestions = () => {
     if (!searchQuery.trim()) return [];
@@ -302,7 +347,7 @@ export default function App() {
     }, 300);
   };
 
-  // Image Picker & Mock OCR Scanner (Expo SDK 51+ compliant)
+  // Image Picker & Mock OCR Scanner
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -552,7 +597,7 @@ export default function App() {
             filteredWarranties.map((item) => (
               <View key={item.id} style={styles.claimCard}>
                 
-                {/* HERO FEATURE: Price Drop Radar Alert Box */}
+                {/* Price Drop Radar Alert Box */}
                 {item.priceDrop && item.status !== 'claimed' && (
                   <View style={styles.priceDropAlertBox}>
                     <View style={styles.priceDropHeader}>
@@ -730,12 +775,7 @@ export default function App() {
                   <Text style={styles.copyBtnText}>Copy Letter</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={styles.openMailBtn}
-                  onPress={() => {
-                    Alert.alert('📧 Opening Mail App...', `Drafting email to ${selectedItemForClaim ? selectedItemForClaim.store : 'Store'} Customer Support.`);
-                  }}
-                >
+                <TouchableOpacity style={styles.openMailBtn} onPress={handleOpenMail}>
                   <Mail color="#ffffff" size={16} />
                   <Text style={styles.openMailBtnText}>Open in Mail</Text>
                 </TouchableOpacity>
