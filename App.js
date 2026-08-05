@@ -262,10 +262,12 @@ export default function App() {
     const dateStr = new Date().toLocaleDateString();
 
     const htmlContent = `
+      <!DOCTYPE html>
       <html>
         <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1f2937; }
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1f2937; background: #ffffff; }
             .header { border-bottom: 2px solid #e11d48; padding-bottom: 20px; margin-bottom: 30px; }
             .logo { color: #e11d48; font-size: 28px; font-weight: bold; margin: 0; }
             .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
@@ -320,11 +322,12 @@ export default function App() {
     `;
 
     try {
-      const { uri } = await Print.printToFileAsync({ html: htmlContent });
-      
       if (Platform.OS === 'web') {
-        Alert.alert('PDF Ready!', 'On a mobile device, this triggers the native share sheet to email or save the PDF.');
+        // Web: Use printAsync to trigger the browser's native print dialog for the custom HTML payload
+        await Print.printAsync({ html: htmlContent });
       } else {
+        // Mobile: Generate the invisible file and push it to the native share sheet
+        const { uri } = await Print.printToFileAsync({ html: htmlContent });
         await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: 'Export PocketClaim Vault' });
       }
     } catch (error) {
