@@ -124,7 +124,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      Purchases.configure({ apiKey: "test_SaJ0j1PFIAYUwoSPCNINLxQblgF" });
+      Purchases.configure({ apiKey: "goog_aLavybavHMaxgYPHUufAUfi1xjG" });
     } catch (e) {
       console.log("RevenueCat web preview mode", e);
     }
