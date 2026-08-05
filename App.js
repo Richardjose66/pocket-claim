@@ -19,6 +19,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { 
   Shield, 
   Plus, 
@@ -43,7 +45,8 @@ import {
   Tag,
   Copy,
   Mail,
-  TrendingDown
+  TrendingDown,
+  Download
 } from 'lucide-react-native';
 
 const STORAGE_KEY = '@pocketclaim_warranties_v1';
@@ -119,14 +122,12 @@ export default function App() {
   const [receiptImage, setReceiptImage] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Initialize RevenueCat SDK & load saved data
   useEffect(() => {
     try {
       Purchases.configure({ apiKey: "test_SaJ0j1PFIAYUwoSPCNINLxQblgF" });
     } catch (e) {
       console.log("RevenueCat web preview mode", e);
     }
-
     loadInitialData();
   }, []);
 
@@ -164,7 +165,6 @@ export default function App() {
     }
   };
 
-  // Toggle Push Notification Reminder
   const handleToggleReminder = (id) => {
     const updatedList = warranties.map(item => {
       if (item.id === id) {
@@ -179,12 +179,10 @@ export default function App() {
       }
       return item;
     });
-
     setWarranties(updatedList);
     saveData(updatedList);
   };
 
-  // Open AI Claim Letter Generator
   const handleOpenClaimGenerator = (item, defaultReason = 'Price Mismatch / Price Drop') => {
     setSelectedItemForClaim(item);
     setClaimReason(defaultReason);
@@ -192,7 +190,6 @@ export default function App() {
     setClaimLetterModalVisible(true);
   };
 
-  // Generate Letter Text based on Item and Selected Reason
   const generateLetterContent = (item, reason) => {
     if (!item) return;
     
@@ -216,7 +213,6 @@ export default function App() {
     setGeneratedLetter(letterText);
   };
 
-  // Real Clipboard Copy Handler
   const handleCopyLetter = async () => {
     try {
       await Clipboard.setStringAsync(generatedLetter);
@@ -226,11 +222,9 @@ export default function App() {
     }
   };
 
-  // Optimized Hybrid Mail Handler
   const handleOpenMail = async () => {
     if (!selectedItemForClaim) return;
 
-    // Verified Demo Store Mapping (leave unmapped blank to prevent hallucinated emails)
     const storeEmailMap = {
       'Amazon': 'cs-reply@amazon.com',
       'Best Buy': 'customercare@bestbuy.com',
@@ -242,7 +236,6 @@ export default function App() {
     const subject = `Claim Request - ${selectedItemForClaim.item}`;
     const body = generatedLetter;
 
-    // WEB PREVIEW FALLBACK
     if (Platform.OS === 'web') {
       await Clipboard.setStringAsync(generatedLetter);
       Alert.alert(
@@ -253,40 +246,106 @@ export default function App() {
       return;
     }
 
-    // MOBILE (EXPO GO & PRODUCTION)
     const mailtoUrl = `mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     try {
-      // Direct call bypasses Expo Go canOpenURL scheme restrictions
       await Linking.openURL(mailtoUrl);
     } catch (e) {
-      console.log('Error opening mail client', e);
       await Clipboard.setStringAsync(generatedLetter);
-      Alert.alert(
-        '📋 Letter Copied', 
-        `Letter copied to clipboard! Open your email app and paste to send to ${toEmail || 'support'}.`
-      );
+      Alert.alert('📋 Letter Copied', `Letter copied to clipboard! Open your email app and paste to send to ${toEmail || 'support'}.`);
     }
   };
 
-  // Auto-Suggestions Search
+  // --- DISASTER BUNDLE (PDF EXPORT) ---
+  const handleExportVault = async () => {
+    const totalValNum = warranties.reduce((acc, curr) => acc + (parseFloat(curr.value.replace(/[^0-9.-]+/g, '')) || 0), 0);
+    const dateStr = new Date().toLocaleDateString();
+
+    const htmlContent = `
+      <html>
+        <head>
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1f2937; }
+            .header { border-bottom: 2px solid #e11d48; padding-bottom: 20px; margin-bottom: 30px; }
+            .logo { color: #e11d48; font-size: 28px; font-weight: bold; margin: 0; }
+            .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
+            .summary-box { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #e2e8f0; }
+            .summary-title { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+            .summary-val { font-size: 32px; font-weight: bold; color: #0f172a; margin: 10px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th { text-align: left; background-color: #f1f5f9; padding: 12px; font-size: 12px; color: #64748b; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+            td { padding: 16px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #334155; }
+            .item-name { font-weight: bold; color: #0f172a; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 class="logo">PocketClaim</h1>
+            <p class="subtitle">Personal Asset & Insurance Documentation Vault • Generated ${dateStr}</p>
+          </div>
+
+          <div class="summary-box">
+            <div class="summary-title">Total Protected Value</div>
+            <div class="summary-val">$${totalValNum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+            <div class="summary-title">Documented Items: ${warranties.length}</div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Asset Name</th>
+                <th>Retailer</th>
+                <th>Declared Value</th>
+                <th>Coverage Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${warranties.map(item => `
+                <tr>
+                  <td class="item-name">${item.item}</td>
+                  <td>${item.store}</td>
+                  <td>${item.value}</td>
+                  <td>${item.expires}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            Confidential Document • Generated securely via PocketClaim App.
+          </div>
+        </body>
+      </html>
+    `;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      
+      if (Platform.OS === 'web') {
+        Alert.alert('PDF Ready!', 'On a mobile device, this triggers the native share sheet to email or save the PDF.');
+      } else {
+        await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: 'Export PocketClaim Vault' });
+      }
+    } catch (error) {
+      console.log('Error generating PDF', error);
+      Alert.alert('Error', 'Could not generate vault export.');
+    }
+  };
+
   const getAutoSuggestions = () => {
     if (!searchQuery.trim()) return [];
-    
     const query = searchQuery.toLowerCase();
     const suggestions = new Set();
-
     warranties.forEach(item => {
       if (item.item.toLowerCase().includes(query)) suggestions.add(item.item);
       if (item.store.toLowerCase().includes(query)) suggestions.add(item.store);
     });
-
     return Array.from(suggestions).slice(0, 4);
   };
 
   const suggestionsList = getAutoSuggestions();
 
-  // Filter Logic
   const getFilteredWarranties = () => {
     return warranties.filter(item => {
       const matchesSearch = searchQuery === '' || 
@@ -308,14 +367,12 @@ export default function App() {
 
   const filteredWarranties = getFilteredWarranties();
 
-  // Handle Delete Warranty
   const handleDeleteClaim = (id) => {
     const updatedList = warranties.filter(item => item.id !== id);
     setWarranties(updatedList);
     saveData(updatedList);
   };
 
-  // Handle Mark as Claimed
   const handleMarkAsClaimed = (id) => {
     const updatedList = warranties.map(item => {
       if (item.id === id) {
@@ -327,7 +384,6 @@ export default function App() {
     saveData(updatedList);
   };
 
-  // Handle RevenueCat Purchase Simulation
   const handleSubscribe = async () => {
     setIsPro(true);
     try {
@@ -335,9 +391,7 @@ export default function App() {
     } catch (e) {
       console.log('Error saving Pro status', e);
     }
-
     setPaywallModalVisible(false);
-    
     setTimeout(() => {
       Alert.alert(
         '🎉 Welcome to PocketClaim Pro!',
@@ -347,7 +401,6 @@ export default function App() {
     }, 300);
   };
 
-  // Image Picker & Mock OCR Scanner
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -376,7 +429,6 @@ export default function App() {
     }
   };
 
-  // Add warranty handler
   const handleAddClaim = () => {
     if (!newItemName || !newItemValue) {
       Alert.alert('Missing Info', 'Please enter at least an Item Name and Price.');
@@ -412,13 +464,11 @@ export default function App() {
     setAddModalVisible(false);
   };
 
-  // Total value calculator
   const totalValue = warranties.reduce((acc, curr) => {
     const num = parseFloat(curr.value.replace(/[^0-9.-]+/g, '')) || 0;
     return acc + num;
   }, 0);
 
-  // Onboarding Carousel
   const onboardingSlides = [
     {
       icon: <Shield color="#e11d48" size={64} />,
@@ -588,9 +638,13 @@ export default function App() {
             </View>
           </View>
 
-          {/* Dynamic Warranty List Section */}
+          {/* SECTION HEADER WITH EXPORT BUTTON */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Vault Entries ({filteredWarranties.length})</Text>
+            <TouchableOpacity style={styles.exportBtn} onPress={handleExportVault}>
+              <Download color="#fb7185" size={14} />
+              <Text style={styles.exportBtnText}>Export PDF</Text>
+            </TouchableOpacity>
           </View>
 
           {filteredWarranties.length > 0 ? (
@@ -981,7 +1035,8 @@ const styles = StyleSheet.create({
   
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   sectionTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
-  seeAll: { color: '#fb7185', fontSize: 14 },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#270a16', borderWidth: 1, borderColor: '#e11d48', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
+  exportBtnText: { color: '#fb7185', fontSize: 12, fontWeight: '600' },
   
   claimCard: { backgroundColor: '#140a12', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#2e1220' },
   
