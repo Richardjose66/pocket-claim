@@ -22,7 +22,6 @@ import * as Clipboard from 'expo-clipboard';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { 
-  Shield, 
   Plus, 
   Clock, 
   FileText, 
@@ -42,11 +41,10 @@ import {
   BellRing,
   ArrowRight,
   Zap,
-  Tag,
-  Copy,
-  Mail,
   TrendingDown,
-  Download
+  Download,
+  Copy,
+  Mail
 } from 'lucide-react-native';
 
 const STORAGE_KEY = '@pocketclaim_warranties_v1';
@@ -256,7 +254,6 @@ export default function App() {
     }
   };
 
-  // --- DISASTER BUNDLE (PDF EXPORT) ---
   const handleExportVault = async () => {
     const totalValNum = warranties.reduce((acc, curr) => acc + (parseFloat(curr.value.replace(/[^0-9.-]+/g, '')) || 0), 0);
     const dateStr = new Date().toLocaleDateString();
@@ -323,10 +320,8 @@ export default function App() {
 
     try {
       if (Platform.OS === 'web') {
-        // Web: Use printAsync to trigger the browser's native print dialog for the custom HTML payload
         await Print.printAsync({ html: htmlContent });
       } else {
-        // Mobile: Generate the invisible file and push it to the native share sheet
         const { uri } = await Print.printToFileAsync({ html: htmlContent });
         await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: 'Export PocketClaim Vault' });
       }
@@ -474,7 +469,7 @@ export default function App() {
 
   const onboardingSlides = [
     {
-      icon: <Shield color="#e11d48" size={64} />,
+      icon: <Image source={require('./assets/icon.png')} style={styles.logoImageLarge} />,
       title: "Never Lose a Refund Again",
       subtitle: "PocketClaim automatically tracks your warranties, return windows, and store policies in one secure vault."
     },
@@ -497,7 +492,7 @@ export default function App() {
           <StatusBar barStyle="light-content" backgroundColor="#0a080d" />
           
           <View style={styles.onboardHeader}>
-            <Shield color="#e11d48" size={32} />
+            <Image source={require('./assets/icon.png')} style={styles.logoImage} />
             <Text style={styles.onboardBrand}>PocketClaim</Text>
           </View>
 
@@ -554,7 +549,7 @@ export default function App() {
         {/* Top Header */}
         <View style={styles.header}>
           <View style={styles.brandRow}>
-            <Shield color="#e11d48" size={28} />
+            <Image source={require('./assets/icon.png')} style={styles.logoImage} />
             <Text style={styles.brandTitle}>PocketClaim</Text>
             {isPro && (
               <View style={styles.proHeaderBadge}>
@@ -563,32 +558,36 @@ export default function App() {
               </View>
             )}
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={() => setAddModalVisible(true)}>
-            <Plus color="#ffffff" size={20} />
-            <Text style={styles.addButtonText}>Add Claim</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Global Controls */}
         <View style={styles.globalControls}>
-          <View style={styles.searchBar}>
-            <Search color="#64748b" size={20} />
-            <TextInput 
-              style={styles.searchInput} 
-              placeholder="Search items or stores..." 
-              placeholderTextColor="#64748b"
-              value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                setShowSuggestions(true);
-              }}
-              onFocus={() => setShowSuggestions(true)}
-            />
-            {searchQuery !== '' && (
-              <TouchableOpacity onPress={() => { setSearchQuery(''); setShowSuggestions(false); }}>
-                <X color="#94a3b8" size={18} />
-              </TouchableOpacity>
-            )}
+          <View style={styles.searchRow}>
+            <View style={styles.searchBar}>
+              <Search color="#64748b" size={20} />
+              <TextInput 
+                style={styles.searchInput} 
+                placeholder="Search items or stores..." 
+                placeholderTextColor="#64748b"
+                value={searchQuery}
+                onChangeText={(text) => {
+                  setSearchQuery(text);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+              />
+              {searchQuery !== '' && (
+                <TouchableOpacity onPress={() => { setSearchQuery(''); setShowSuggestions(false); }}>
+                  <X color="#94a3b8" size={18} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* MOVED ADD CLAIM BUTTON HERE */}
+            <TouchableOpacity style={styles.addButton} onPress={() => setAddModalVisible(true)}>
+              <Plus color="#ffffff" size={18} />
+              <Text style={styles.addButtonText}>Add Claim</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Auto-Suggestion Dropdown */}
@@ -645,7 +644,7 @@ export default function App() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Vault Entries ({filteredWarranties.length})</Text>
             <TouchableOpacity style={styles.exportBtn} onPress={handleExportVault}>
-              <Download color="#fb7185" size={14} />
+              <Download color="#ffffff" size={14} />
               <Text style={styles.exportBtnText}>Export PDF</Text>
             </TouchableOpacity>
           </View>
@@ -703,14 +702,14 @@ export default function App() {
                   </View>
                 </View>
 
-                {/* Quick Action Buttons */}
+                {/* Quick Action Buttons with DISTINCT Colors */}
                 <View style={styles.cardActions}>
                   {item.status !== 'claimed' && (
                     <TouchableOpacity 
                       style={styles.actionBtnDraft} 
                       onPress={() => handleOpenClaimGenerator(item, 'Defective Item / Exchange')}
                     >
-                      <FileText color="#fb7185" size={14} />
+                      <FileText color="#3b82f6" size={14} />
                       <Text style={styles.actionTextDraft}>Draft Claim</Text>
                     </TouchableOpacity>
                   )}
@@ -721,7 +720,7 @@ export default function App() {
                       onPress={() => handleToggleReminder(item.id)}
                     >
                       {item.reminderActive ? (
-                        <BellRing color="#fb7185" size={14} />
+                        <BellRing color="#f59e0b" size={14} />
                       ) : (
                         <Bell color="#64748b" size={14} />
                       )}
@@ -984,10 +983,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1f1322' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brandTitle: { fontSize: 22, fontWeight: 'bold', color: '#ffffff' },
+  logoImage: { width: 28, height: 28, resizeMode: 'contain' },
+  logoImageLarge: { width: 64, height: 64, resizeMode: 'contain' },
   proHeaderBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#270a16', borderWidth: 1, borderColor: '#e11d48', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 4 },
   proHeaderBadgeText: { color: '#fb7185', fontWeight: 'bold', fontSize: 10 },
-  addButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#be123c', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, gap: 4 },
-  addButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
   
   onboardContainer: { flex: 1, backgroundColor: '#0a080d', padding: 24, justifyContent: 'space-between' },
   onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -1007,9 +1006,11 @@ const styles = StyleSheet.create({
   skipText: { color: '#64748b', fontSize: 14, fontWeight: '500' },
 
   globalControls: { backgroundColor: '#0a080d', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6, gap: 10, borderBottomWidth: 1, borderBottomColor: '#1f1322', zIndex: 20 },
-  
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#140a12', borderRadius: 12, borderWidth: 1, borderColor: '#2e1220', paddingHorizontal: 12, height: 48, gap: 8 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#140a12', borderRadius: 12, borderWidth: 1, borderColor: '#2e1220', paddingHorizontal: 12, height: 48, gap: 8 },
   searchInput: { flex: 1, color: '#ffffff', fontSize: 15 },
+  addButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#be123c', paddingHorizontal: 14, height: 48, borderRadius: 12, gap: 4, justifyContent: 'center' },
+  addButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
 
   suggestionsDropdown: { backgroundColor: '#140a12', borderWidth: 1, borderColor: '#3b1222', borderRadius: 12, overflow: 'hidden', marginTop: -4 },
   suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1f101b', gap: 10 },
@@ -1038,8 +1039,8 @@ const styles = StyleSheet.create({
   
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   sectionTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#270a16', borderWidth: 1, borderColor: '#e11d48', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
-  exportBtnText: { color: '#fb7185', fontSize: 12, fontWeight: '600' },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#be123c', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  exportBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
   
   claimCard: { backgroundColor: '#140a12', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#2e1220' },
   
@@ -1068,10 +1069,10 @@ const styles = StyleSheet.create({
   badgeTextWhite: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
   
   cardActions: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#1f101b' },
-  actionBtnDraft: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(225, 29, 72, 0.15)', borderWidth: 1, borderColor: '#e11d48', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
-  actionTextDraft: { color: '#fb7185', fontSize: 12, fontWeight: '600' },
-  actionBtnReminderActive: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(225, 29, 72, 0.15)', borderWidth: 1, borderColor: '#e11d48', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
-  actionTextReminderActive: { color: '#fb7185', fontSize: 12, fontWeight: '600' },
+  actionBtnDraft: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(59, 130, 246, 0.15)', borderWidth: 1, borderColor: '#3b82f6', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
+  actionTextDraft: { color: '#3b82f6', fontSize: 12, fontWeight: '600' },
+  actionBtnReminderActive: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245, 158, 11, 0.15)', borderWidth: 1, borderColor: '#f59e0b', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
+  actionTextReminderActive: { color: '#f59e0b', fontSize: 12, fontWeight: '600' },
   actionBtnReminderInactive: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#0a080d', borderWidth: 1, borderColor: '#2e1220', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
   actionTextReminderInactive: { color: '#94a3b8', fontSize: 12, fontWeight: '500' },
   actionBtnClaim: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
